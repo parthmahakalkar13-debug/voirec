@@ -3,284 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast — Listener Hub</title>
+  <title>AuraCast Listener</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <style>
     :root {
-      --bg-base: #0a0d14;
-      --bg-surface: rgba(18, 24, 38, 0.75);
-      --bg-elevated: rgba(26, 35, 54, 0.85);
-      --border-subtle: rgba(255, 255, 255, 0.08);
+      --bg: #0a0d14;
+      --card: #121826;
       --primary: #10b981;
-      --primary-hover: #059669;
-      --primary-glow: rgba(16, 185, 129, 0.25);
-      --danger: #ef4444;
-      --warning: #f59e0b;
-      --text-main: #f8fafc;
+      --text: #f8fafc;
       --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --radius-sm: 8px;
-      --radius-md: 14px;
-      --radius-lg: 20px;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body {
-      background-color: var(--bg-base);
-      background-image: radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.12) 0px, transparent 50%);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 28px 16px;
-    }
-
-    .container { width: 100%; max-width: 780px; display: flex; flex-direction: column; gap: 20px; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .logo-icon {
-      width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), #06b6d4);
-      border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 0 16px var(--primary-glow);
-    }
-
-    .card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 22px;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
-
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .card-title { font-size: 1rem; font-weight: 600; color: var(--text-main); }
-
-    .badge {
-      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-      border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
-    }
-    .badge-idle { background: rgba(148, 163, 184, 0.1); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.2); }
-    .badge-live { background: rgba(16, 185, 129, 0.15); color: var(--primary); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); animation: pulse 1.5s infinite; }
-    .badge-warn { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
-
-    @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } 100% { opacity: 1; } }
-
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-    .field { display: flex; flex-direction: column; gap: 6px; }
-    label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-
-    input, select {
-      background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
-      padding: 10px 14px; color: var(--text-main); font-size: 0.875rem; outline: none;
-    }
-    input:focus, select:focus { border-color: var(--primary); }
-
-    .btn-group { display: flex; gap: 12px; margin-top: 14px; }
-    .btn {
-      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 12px 18px; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 600;
-      cursor: pointer; border: none; transition: 0.2s ease;
-    }
-    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 14px var(--primary-glow); }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .volume-box {
-      display: flex; align-items: center; gap: 12px; background: var(--bg-elevated);
-      padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
-    }
-    input[type="range"] { flex: 1; accent-color: var(--primary); }
-
-    .visualizer-container { background: #06080d; border-radius: var(--radius-md); padding: 12px; border: 1px solid var(--border-subtle); margin: 12px 0; }
-    canvas { width: 100%; height: 64px; display: block; }
-
-    .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    @media (max-width: 600px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
-    .metric-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px; }
-    .metric-label { font-size: 0.6875rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; }
-    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9375rem; color: var(--text-main); font-weight: 500; margin-top: 4px; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
+    h2 { font-size: 1.25rem; font-weight: 700; }
+    input { background: #1a2336; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: #fff; font-size: 1rem; outline: none; width: 100%; }
+    button { background: var(--primary); color: #fff; font-weight: 600; border: none; border-radius: 8px; padding: 14px; font-size: 1rem; cursor: pointer; transition: 0.2s ease; }
+    button:disabled { opacity: 0.5; }
+    .status-badge { font-size: 0.8125rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-align: center; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand">
-        <div class="logo-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-        </div>
-        <div>
-          <h2>AuraCast Listener</h2>
-          <p style="font-size: 0.8125rem; color: var(--text-muted);">Real-Time Stream Receiver</p>
-        </div>
-      </div>
-      <span id="listener-badge" class="badge badge-idle">Disconnected</span>
-    </header>
 
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Join Broadcast</div>
-      </div>
-      <div class="form-grid">
-        <div class="field">
-          <label>Speaker Room ID</label>
-          <input type="text" id="room-code-input" placeholder="e.g. aura-abcde" />
-        </div>
-        <div class="field">
-          <label>Audio Output Device</label>
-          <select id="audio-output-select"></select>
-        </div>
-      </div>
-
-      <div class="btn-group">
-        <button id="btn-join" class="btn btn-primary" onclick="joinStream()">Start Listening</button>
-        <button id="btn-leave" class="btn btn-danger" onclick="leaveStream()" disabled>Disconnect</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title" style="margin-bottom: 12px;">Master Volume</div>
-      <div class="volume-box">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)" />
-        <span id="volume-label" style="font-family: monospace; font-size: 0.875rem;">80%</span>
-      </div>
-      <audio id="remote-player" autoplay playsinline></audio>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Downlink Health & Spectrum</div>
-      <div class="visualizer-container">
-        <canvas id="listener-canvas"></canvas>
-      </div>
-      <div class="metrics-grid">
-        <div class="metric-card"><div class="metric-label">Status</div><div class="metric-value" id="stat-status">Idle</div></div>
-        <div class="metric-card"><div class="metric-label">Jitter Buffer</div><div class="metric-value" id="stat-jitter">0 ms</div></div>
-        <div class="metric-card"><div class="metric-label">Packet Loss</div><div class="metric-value">0.0%</div></div>
-        <div class="metric-card"><div class="metric-label">Transport</div><div class="metric-value">WebRTC SRTP</div></div>
-      </div>
-    </div>
+  <div class="card">
+    <h2>Listener Hub</h2>
+    <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxx)" />
+    <button id="btn-listen" onclick="connectToSpeaker()">Start Listening</button>
+    <div id="status-text" class="status-badge">Status: Idle</div>
+    <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
   <script>
     let peer = null;
-    let currentCall = null;
-    let audioCtx = null;
-    let animId = null;
 
-    async function loadOutputs() {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const select = document.getElementById('audio-output-select');
-        select.innerHTML = '';
-        devices.filter(d => d.kind === 'audiooutput').forEach((d, i) => {
-          const opt = document.createElement('option');
-          opt.value = d.deviceId;
-          opt.text = d.label || `Speaker/Headphone ${i + 1}`;
-          select.appendChild(opt);
-        });
-      } catch (err) { console.warn(err); }
+    function initListenerPeer() {
+      peer = new Peer({
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      });
+      peer.on('open', () => {
+        document.getElementById('status-text').innerText = 'Status: Ready to connect';
+      });
     }
 
-    function initPeer() {
-      peer = new Peer();
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('room')) {
-        document.getElementById('room-code-input').value = params.get('room');
-      }
-    }
+    function connectToSpeaker() {
+      const roomId = document.getElementById('room-input').value.trim();
+      if (!roomId) return alert('Please enter the Room ID displayed in the calculator app');
 
-    function joinStream() {
-      const room = document.getElementById('room-code-input').value.trim();
-      if (!room) return alert('Please enter a Speaker Room ID');
+      document.getElementById('status-text').innerText = 'Status: Connecting to ' + roomId + '...';
 
-      document.getElementById('listener-badge').className = 'badge badge-warn';
-      document.getElementById('listener-badge').innerText = 'Negotiating...';
-      document.getElementById('stat-status').innerText = 'Handshake';
-
-      // Silent track to initiate SDP exchange
+      // Create an empty dummy audio track to start the WebRTC handshake
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const dest = ctx.createMediaStreamDestination();
-      const call = peer.call(room, dest.stream);
+      const call = peer.call(roomId, dest.stream);
 
-      call.on('stream', remoteStream => {
-        const player = document.getElementById('remote-player');
+      call.on('stream', (remoteStream) => {
+        const player = document.getElementById('remote-audio');
         player.srcObject = remoteStream;
-        player.play();
-
-        drawVisualizer(remoteStream);
-
-        document.getElementById('listener-badge').className = 'badge badge-live';
-        document.getElementById('listener-badge').innerText = 'Live Streaming';
-        document.getElementById('stat-status').innerText = 'Receiving';
-        document.getElementById('stat-jitter').innerText = '8 ms';
-        document.getElementById('btn-join').disabled = true;
-        document.getElementById('btn-leave').disabled = false;
+        player.play().then(() => {
+          document.getElementById('status-text').innerText = 'Status: Live audio playing 🔴';
+        }).catch(err => {
+          console.warn('Playback error:', err);
+          document.getElementById('status-text').innerText = 'Status: Click anywhere on screen to hear';
+        });
       });
 
-      call.on('close', leaveStream);
-      call.on('error', e => { alert('Connection error: ' + e); leaveStream(); });
-      currentCall = call;
+      call.on('error', (err) => {
+        document.getElementById('status-text').innerText = 'Status: Connection error (' + err + ')';
+      });
     }
 
-    function setVolume(val) {
-      document.getElementById('remote-player').volume = val;
-      document.getElementById('volume-label').innerText = Math.round(val * 100) + '%';
-    }
-
-    function leaveStream() {
-      if (currentCall) currentCall.close();
-      const player = document.getElementById('remote-player');
-      player.srcObject = null;
-
-      document.getElementById('listener-badge').className = 'badge badge-idle';
-      document.getElementById('listener-badge').innerText = 'Disconnected';
-      document.getElementById('stat-status').innerText = 'Idle';
-      document.getElementById('stat-jitter').innerText = '0 ms';
-      document.getElementById('btn-join').disabled = false;
-      document.getElementById('btn-leave').disabled = true;
-      cancelAnimationFrame(animId);
-    }
-
-    function drawVisualizer(stream) {
-      const canvas = document.getElementById('listener-canvas');
-      const ctx = canvas.getContext('2d');
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      source.connect(analyser);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      function render() {
-        animId = requestAnimationFrame(render);
-        analyser.getByteFrequencyData(dataArray);
-        ctx.fillStyle = '#06080d';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const barWidth = (canvas.width / bufferLength) * 2;
-        let x = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          const barHeight = (dataArray[i] / 255) * canvas.height;
-          ctx.fillStyle = '#10b981';
-          ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
-          x += barWidth;
-        }
-      }
-      render();
-    }
-
-    window.onload = () => { initPeer(); loadOutputs(); };
+    window.onload = initListenerPeer;
   </script>
 </body>
 </html>
