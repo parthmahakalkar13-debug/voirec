@@ -15,14 +15,15 @@
       --primary: #10b981;
       --text: #f8fafc;
       --text-muted: #94a3b8;
+      --danger: #ef4444;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; }
     h2 { font-size: 1.25rem; font-weight: 700; }
     input { background: #1a2336; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: #fff; font-size: 1rem; outline: none; width: 100%; }
     button { background: var(--primary); color: #fff; font-weight: 600; border: none; border-radius: 8px; padding: 14px; font-size: 1rem; cursor: pointer; transition: 0.2s ease; }
-    button:disabled { opacity: 0.5; }
+    button:active { transform: scale(0.98); }
     .status-badge { font-size: 0.8125rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-align: center; }
   </style>
 </head>
@@ -30,53 +31,76 @@
 
   <div class="card">
     <h2>Listener Hub</h2>
-    <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxx)" />
+    <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
     <button id="btn-listen" onclick="connectToSpeaker()">Start Listening</button>
-    <div id="status-text" class="status-badge">Status: Idle</div>
+    <div id="status-text" class="status-badge">Status: Initializing Peer...</div>
     <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
   <script>
     let peer = null;
+    let currentCall = null;
 
     function initListenerPeer() {
       peer = new Peer({
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
           ]
         }
       });
+
       peer.on('open', () => {
         document.getElementById('status-text').innerText = 'Status: Ready to connect';
+      });
+
+      peer.on('error', (err) => {
+        document.getElementById('status-text').innerText = 'Status: Error (' + err.type + ')';
       });
     }
 
     function connectToSpeaker() {
       const roomId = document.getElementById('room-input').value.trim();
-      if (!roomId) return alert('Please enter the Room ID displayed in the calculator app');
+      if (!roomId) return alert('Enter the Room ID from the Calculator app');
 
-      document.getElementById('status-text').innerText = 'Status: Connecting to ' + roomId + '...';
+      document.getElementById('status-text').innerText = 'Connecting to ' + roomId + '...';
 
-      // Create an empty dummy audio track to start the WebRTC handshake
+      // Create a dummy stream so the WebRTC offer contains audio capability
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
       const dest = ctx.createMediaStreamDestination();
+      gain.connect(dest);
+      osc.start();
+
       const call = peer.call(roomId, dest.stream);
+      currentCall = call;
 
       call.on('stream', (remoteStream) => {
         const player = document.getElementById('remote-audio');
         player.srcObject = remoteStream;
         player.play().then(() => {
-          document.getElementById('status-text').innerText = 'Status: Live audio playing 🔴';
-        }).catch(err => {
-          console.warn('Playback error:', err);
-          document.getElementById('status-text').innerText = 'Status: Click anywhere on screen to hear';
+          document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+        }).catch(() => {
+          document.getElementById('status-text').innerText = 'Status: Tap button below to unmute';
+          document.getElementById('btn-listen').innerText = 'Tap to Unmute Audio';
+          document.getElementById('btn-listen').onclick = () => {
+            player.play();
+            document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+          };
         });
       });
 
+      call.on('close', () => {
+        document.getElementById('status-text').innerText = 'Status: Stream ended by speaker';
+      });
+
       call.on('error', (err) => {
-        document.getElementById('status-text').innerText = 'Status: Connection error (' + err + ')';
+        document.getElementById('status-text').innerText = 'Status: Call Error (' + err + ')';
       });
     }
 
