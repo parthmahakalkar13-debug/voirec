@@ -76,7 +76,6 @@
     button:hover { background: var(--primary-hover); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* Mute button styles */
     .btn-mute {
       background: var(--warning);
     }
@@ -86,7 +85,6 @@
       background: var(--danger) !important;
     }
 
-    /* Controls Panel */
     .controls-panel {
       background: var(--card-inner);
       border: 1px solid var(--border);
@@ -128,11 +126,10 @@
     <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
     
     <div class="btn-group">
-      <button id="btn-listen" onclick="connectToSpeaker()">Start Listening</button>
+      <button id="btn-listen" onclick="startListeningFlow()">Start Listening</button>
       <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
     </div>
 
-    <!-- Live controls active during connection -->
     <div class="controls-panel">
       <div class="volume-row">
         <span>Volume:</span>
@@ -149,10 +146,19 @@
     let peer = null;
     let currentCall = null;
     let isMuted = false;
+    let autoReconnectTimer = null;
+    let isManualDisconnect = false;
+
     const player = document.getElementById('remote-audio');
     const muteBtn = document.getElementById('btn-mute');
+    const listenBtn = document.getElementById('btn-listen');
+    const statusText = document.getElementById('status-text');
 
     function initListenerPeer() {
+      if (peer) {
+        try { peer.destroy(); } catch (e) {}
+      }
+
       peer = new Peer({
         config: {
           iceServers: [
@@ -164,21 +170,26 @@
       });
 
       peer.on('open', () => {
-        document.getElementById('status-text').innerText = 'Status: Ready to connect';
+        statusText.innerText = 'Status: Ready to connect';
       });
 
       peer.on('error', (err) => {
-        document.getElementById('status-text').innerText = 'Status: Error (' + err.type + ')';
+        statusText.innerText = 'Status: Peer Error (' + err.type + ')';
+        scheduleReconnect();
+      });
+
+      peer.on('disconnected', () => {
+        statusText.innerText = 'Status: Peer Server Disconnected. Re-establishing...';
+        try { peer.reconnect(); } catch(e){}
       });
     }
 
-    function connectToSpeaker() {
-      const roomId = document.getElementById('room-input').value.trim();
-      if (!roomId) return alert('Enter the Room ID from the Calculator app');
+    function startListeningFlow() {
+      isManualDisconnect = false;
+      connectToSpeaker();
+    }
 
-      document.getElementById('status-text').innerText = 'Connecting to ' + roomId + '...';
-
-      // Create dummy audio destination to initiate WebRTC offer
+    function createHandshakeStream() {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -187,44 +198,85 @@
       const dest = ctx.createMediaStreamDestination();
       gain.connect(dest);
       osc.start();
+      return dest.stream;
+    }
 
-      const call = peer.call(roomId, dest.stream);
+    function connectToSpeaker() {
+      const roomId = document.getElementById('room-input').value.trim();
+      if (!roomId) return alert('Enter the Room ID from the Calculator app');
+
+      clearTimeout(autoReconnectTimer);
+      statusText.innerText = 'Connecting to ' + roomId + '...';
+
+      const dummyStream = createHandshakeStream();
+      const call = peer.call(roomId, dummyStream);
       currentCall = call;
 
       call.on('stream', (remoteStream) => {
         player.srcObject = remoteStream;
-        player.muted = isMuted; // keep user's mute state
+        player.muted = isMuted;
+
         player.play().then(() => {
-          document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+          updateStreamingStatus();
         }).catch(() => {
-          document.getElementById('status-text').innerText = 'Status: Tap button below to enable sound';
-          document.getElementById('btn-listen').innerText = 'Enable Sound';
-          document.getElementById('btn-listen').onclick = () => {
+          statusText.innerText = 'Status: Tap button below to enable sound';
+          listenBtn.innerText = 'Enable Sound';
+          listenBtn.disabled = false;
+          listenBtn.onclick = () => {
             player.play();
-            document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
-            document.getElementById('btn-listen').innerText = 'Connected';
-            document.getElementById('btn-listen').disabled = true;
+            updateStreamingStatus();
+            listenBtn.innerText = 'Connected';
+            listenBtn.disabled = true;
           };
         });
 
-        // Enable mute controls
         muteBtn.disabled = false;
-        document.getElementById('btn-listen').disabled = true;
+        listenBtn.innerText = 'Connected';
+        listenBtn.disabled = true;
+
+        // Monitor connection drops & recover automatically
+        if (call.peerConnection) {
+          call.peerConnection.onconnectionstatechange = () => {
+            const state = call.peerConnection.connectionState;
+            if (state === 'disconnected' || state === 'failed') {
+              scheduleReconnect();
+            }
+          };
+        }
       });
 
       call.on('close', () => {
-        document.getElementById('status-text').innerText = 'Status: Stream ended by speaker';
-        muteBtn.disabled = true;
-        document.getElementById('btn-listen').disabled = false;
+        scheduleReconnect();
       });
 
       call.on('error', (err) => {
-        document.getElementById('status-text').innerText = 'Status: Call Error (' + err + ')';
-        muteBtn.disabled = true;
+        statusText.innerText = 'Status: Call Error (' + err + ')';
+        scheduleReconnect();
       });
     }
 
-    // Toggle Mute without dropping WebRTC audio stream
+    function scheduleReconnect() {
+      if (isManualDisconnect) return;
+
+      statusText.innerText = 'Status: Interrupted. Auto-reconnecting in 2s... 🟡';
+      muteBtn.disabled = true;
+      listenBtn.disabled = false;
+      listenBtn.innerText = 'Reconnecting...';
+
+      clearTimeout(autoReconnectTimer);
+      autoReconnectTimer = setTimeout(() => {
+        connectToSpeaker();
+      }, 2000);
+    }
+
+    function updateStreamingStatus() {
+      if (isMuted) {
+        statusText.innerText = 'Status: Connected (Audio Muted) 🔇';
+      } else {
+        statusText.innerText = 'Status: Connected & Streaming 🟢';
+      }
+    }
+
     function toggleMute() {
       isMuted = !isMuted;
       player.muted = isMuted;
@@ -232,15 +284,14 @@
       if (isMuted) {
         muteBtn.innerText = 'Unmute Voice';
         muteBtn.classList.add('btn-muted-active');
-        document.getElementById('status-text').innerText = 'Status: Connected (Audio Muted) 🔇';
+        statusText.innerText = 'Status: Connected (Audio Muted) 🔇';
       } else {
         muteBtn.innerText = 'Mute Voice';
         muteBtn.classList.remove('btn-muted-active');
-        document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+        statusText.innerText = 'Status: Connected & Streaming 🟢';
       }
     }
 
-    // Volume Adjustment
     function setVolume(val) {
       player.volume = val;
       document.getElementById('vol-readout').innerText = Math.round(val * 100) + '%';
