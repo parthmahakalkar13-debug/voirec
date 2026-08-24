@@ -126,7 +126,7 @@
     <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
     
     <div class="btn-group">
-      <button id="btn-listen" onclick="startListeningFlow()">Start Listening</button>
+      <button id="btn-listen" onclick="connectToSpeaker()">Start Listening</button>
       <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
     </div>
 
@@ -146,19 +146,10 @@
     let peer = null;
     let currentCall = null;
     let isMuted = false;
-    let autoReconnectTimer = null;
-    let isManualDisconnect = false;
-
     const player = document.getElementById('remote-audio');
     const muteBtn = document.getElementById('btn-mute');
-    const listenBtn = document.getElementById('btn-listen');
-    const statusText = document.getElementById('status-text');
 
     function initListenerPeer() {
-      if (peer) {
-        try { peer.destroy(); } catch (e) {}
-      }
-
       peer = new Peer({
         config: {
           iceServers: [
@@ -170,26 +161,20 @@
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Ready to connect';
+        document.getElementById('status-text').innerText = 'Status: Ready to connect';
       });
 
       peer.on('error', (err) => {
-        statusText.innerText = 'Status: Peer Error (' + err.type + ')';
-        scheduleReconnect();
-      });
-
-      peer.on('disconnected', () => {
-        statusText.innerText = 'Status: Peer Server Disconnected. Re-establishing...';
-        try { peer.reconnect(); } catch(e){}
+        document.getElementById('status-text').innerText = 'Status: Error (' + err.type + ')';
       });
     }
 
-    function startListeningFlow() {
-      isManualDisconnect = false;
-      connectToSpeaker();
-    }
+    function connectToSpeaker() {
+      const roomId = document.getElementById('room-input').value.trim();
+      if (!roomId) return alert('Enter the Room ID from the Calculator app');
 
-    function createHandshakeStream() {
+      document.getElementById('status-text').innerText = 'Connecting to ' + roomId + '...';
+
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -198,83 +183,40 @@
       const dest = ctx.createMediaStreamDestination();
       gain.connect(dest);
       osc.start();
-      return dest.stream;
-    }
 
-    function connectToSpeaker() {
-      const roomId = document.getElementById('room-input').value.trim();
-      if (!roomId) return alert('Enter the Room ID from the Calculator app');
-
-      clearTimeout(autoReconnectTimer);
-      statusText.innerText = 'Connecting to ' + roomId + '...';
-
-      const dummyStream = createHandshakeStream();
-      const call = peer.call(roomId, dummyStream);
+      const call = peer.call(roomId, dest.stream);
       currentCall = call;
 
       call.on('stream', (remoteStream) => {
         player.srcObject = remoteStream;
         player.muted = isMuted;
-
         player.play().then(() => {
-          updateStreamingStatus();
+          document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
         }).catch(() => {
-          statusText.innerText = 'Status: Tap button below to enable sound';
-          listenBtn.innerText = 'Enable Sound';
-          listenBtn.disabled = false;
-          listenBtn.onclick = () => {
+          document.getElementById('status-text').innerText = 'Status: Tap button below to enable sound';
+          document.getElementById('btn-listen').innerText = 'Enable Sound';
+          document.getElementById('btn-listen').onclick = () => {
             player.play();
-            updateStreamingStatus();
-            listenBtn.innerText = 'Connected';
-            listenBtn.disabled = true;
+            document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+            document.getElementById('btn-listen').innerText = 'Connected';
+            document.getElementById('btn-listen').disabled = true;
           };
         });
 
         muteBtn.disabled = false;
-        listenBtn.innerText = 'Connected';
-        listenBtn.disabled = true;
-
-        // Monitor connection drops & recover automatically
-        if (call.peerConnection) {
-          call.peerConnection.onconnectionstatechange = () => {
-            const state = call.peerConnection.connectionState;
-            if (state === 'disconnected' || state === 'failed') {
-              scheduleReconnect();
-            }
-          };
-        }
+        document.getElementById('btn-listen').disabled = true;
       });
 
       call.on('close', () => {
-        scheduleReconnect();
+        document.getElementById('status-text').innerText = 'Status: Stream ended by speaker';
+        muteBtn.disabled = true;
+        document.getElementById('btn-listen').disabled = false;
       });
 
       call.on('error', (err) => {
-        statusText.innerText = 'Status: Call Error (' + err + ')';
-        scheduleReconnect();
+        document.getElementById('status-text').innerText = 'Status: Call Error (' + err + ')';
+        muteBtn.disabled = true;
       });
-    }
-
-    function scheduleReconnect() {
-      if (isManualDisconnect) return;
-
-      statusText.innerText = 'Status: Interrupted. Auto-reconnecting in 2s... 🟡';
-      muteBtn.disabled = true;
-      listenBtn.disabled = false;
-      listenBtn.innerText = 'Reconnecting...';
-
-      clearTimeout(autoReconnectTimer);
-      autoReconnectTimer = setTimeout(() => {
-        connectToSpeaker();
-      }, 2000);
-    }
-
-    function updateStreamingStatus() {
-      if (isMuted) {
-        statusText.innerText = 'Status: Connected (Audio Muted) 🔇';
-      } else {
-        statusText.innerText = 'Status: Connected & Streaming 🟢';
-      }
     }
 
     function toggleMute() {
@@ -284,11 +226,11 @@
       if (isMuted) {
         muteBtn.innerText = 'Unmute Voice';
         muteBtn.classList.add('btn-muted-active');
-        statusText.innerText = 'Status: Connected (Audio Muted) 🔇';
+        document.getElementById('status-text').innerText = 'Status: Connected (Audio Muted) 🔇';
       } else {
         muteBtn.innerText = 'Mute Voice';
         muteBtn.classList.remove('btn-muted-active');
-        statusText.innerText = 'Status: Connected & Streaming 🟢';
+        document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
       }
     }
 
