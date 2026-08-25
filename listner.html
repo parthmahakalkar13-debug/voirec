@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast — Resilient Listener</title>
+  <title>AuraCast — High Resilience Listener</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
@@ -22,15 +23,63 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    input[type="text"] { background: var(--card-inner); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 1rem; outline: none; width: 100%; }
+    
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+
+    input[type="text"] {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      width: 100%;
+    }
+    input[type="text"]:focus { border-color: var(--primary); }
+
     .btn-group { display: flex; gap: 10px; }
-    button { flex: 1; background: var(--primary); color: #fff; font-weight: 600; border: none; border-radius: 10px; padding: 14px; font-size: 0.95rem; cursor: pointer; transition: 0.2s; }
+    button {
+      flex: 1;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
     button:hover { background: var(--primary-hover); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
+
     .btn-mute { background: var(--warning); }
     .btn-muted-active { background: var(--danger) !important; }
-    .controls-panel { background: var(--card-inner); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+    .controls-panel {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     .volume-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); }
     input[type="range"] { flex: 1; accent-color: var(--primary); cursor: pointer; }
     .status-badge { font-size: 0.8125rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-align: center; }
@@ -39,11 +88,12 @@
 <body>
 
   <div class="card">
-    <h2>Resilient Listener Hub</h2>
-    <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
+    <h2>Persistent Listener Hub</h2>
+    
+    <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
     
     <div class="btn-group">
-      <button id="btn-listen" onclick="startPersistentConnection()">Connect</button>
+      <button id="btn-listen" onclick="startInfiniteWatchdog()">Lock Connection</button>
       <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
     </div>
 
@@ -55,7 +105,7 @@
       </div>
     </div>
 
-    <div id="status-text" class="status-badge">Status: Idle</div>
+    <div id="status-text" class="status-badge">Status: Initializing Mesh...</div>
     <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
@@ -64,61 +114,71 @@
     let activeCall = null;
     let isMuted = false;
     let targetRoomId = '';
-    let monitorInterval = null;
+    let watchdogTimer = null;
+    let isConnected = false;
 
     const player = document.getElementById('remote-audio');
     const muteBtn = document.getElementById('btn-mute');
-    const connectBtn = document.getElementById('btn-listen');
+    const lockBtn = document.getElementById('btn-listen');
     const statusText = document.getElementById('status-text');
 
-    function initPeer() {
+    const STUN_SERVERS = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
+    ];
+
+    function initListenerPeer() {
       if (peer) {
-        try { peer.destroy(); } catch(e){}
+        try { peer.destroy(); } catch (e) {}
       }
 
       peer = new Peer({
         config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
-          ]
+          iceServers: STUN_SERVERS,
+          iceCandidatePoolSize: 10,
+          iceTransportPolicy: 'all'
         }
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Ready to connect';
+        statusText.innerText = 'Status: Ready & Armed ⚡';
       });
 
       peer.on('disconnected', () => {
-        peer.reconnect();
+        if (!peer.destroyed) peer.reconnect();
       });
 
       peer.on('error', (err) => {
-        statusText.innerText = 'Status: ' + err.type;
+        statusText.innerText = 'Peer Mesh: ' + err.type;
       });
     }
 
-    function startPersistentConnection() {
+    function startInfiniteWatchdog() {
       targetRoomId = document.getElementById('room-input').value.trim();
       if (!targetRoomId) return alert('Enter Room ID');
 
-      executeCall();
+      lockBtn.innerText = 'Locked 🟢';
+      lockBtn.disabled = true;
 
-      // Automated Heartbeat: Detects network drops or call interrupts and reconnects automatically
-      if (!monitorInterval) {
-        monitorInterval = setInterval(() => {
-          if (!activeCall || !activeCall.open) {
-            statusText.innerText = 'Status: Re-syncing connection...';
-            executeCall();
+      connectWithFailover();
+
+      // Infinite Watchdog Loop: Checks connection every 2.5 seconds
+      if (!watchdogTimer) {
+        watchdogTimer = setInterval(() => {
+          if (!isConnected || !activeCall || !activeCall.open) {
+            statusText.innerText = 'Watchdog: Re-verifying link...';
+            connectWithFailover();
           }
-        }, 4000);
+        }, 2500);
       }
     }
 
-    function executeCall() {
+    function connectWithFailover() {
       if (!peer || peer.destroyed) {
-        initPeer();
+        initListenerPeer();
         return;
       }
 
@@ -134,29 +194,45 @@
       const call = peer.call(targetRoomId, dest.stream);
       if (!call) return;
 
+      activeCall = call;
+
       call.on('stream', (remoteStream) => {
+        isConnected = true;
         player.srcObject = remoteStream;
         player.muted = isMuted;
+
         player.play().then(() => {
-          statusText.innerText = 'Status: Connected & Streaming 🟢';
+          statusText.innerText = 'Status: Stream Active (Unbreakable Link) 🟢';
         }).catch(() => {
-          statusText.innerText = 'Status: Audio Locked (Tap Screen)';
+          statusText.innerText = 'Status: Audio Waiting (Tap Anywhere)';
           document.body.onclick = () => { player.play(); };
         });
 
         muteBtn.disabled = false;
-        connectBtn.disabled = true;
       });
 
+      if (call.peerConnection) {
+        const pc = call.peerConnection;
+
+        pc.oniceconnectionstatechange = () => {
+          if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+            isConnected = false;
+            try { pc.restartIce(); } catch (e) {}
+          } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+            isConnected = true;
+            statusText.innerText = 'Status: Stream Active (Unbreakable Link) 🟢';
+          }
+        };
+      }
+
       call.on('close', () => {
-        statusText.innerText = 'Status: Interrupted. Auto-retrying...';
+        isConnected = false;
+        statusText.innerText = 'Connection interrupted. Auto-recovering...';
       });
 
       call.on('error', () => {
-        statusText.innerText = 'Status: Re-establishing link...';
+        isConnected = false;
       });
-
-      activeCall = call;
     }
 
     function toggleMute() {
@@ -170,7 +246,7 @@
       } else {
         muteBtn.innerText = 'Mute Voice';
         muteBtn.classList.remove('btn-muted-active');
-        statusText.innerText = 'Status: Connected & Streaming 🟢';
+        statusText.innerText = 'Status: Stream Active (Unbreakable Link) 🟢';
       }
     }
 
@@ -179,7 +255,7 @@
       document.getElementById('vol-readout').innerText = Math.round(val * 100) + '%';
     }
 
-    window.onload = initPeer;
+    window.onload = initListenerPeer;
   </script>
 </body>
 </html>
