@@ -39,7 +39,7 @@
 
     h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
 
-    /* Video Player Screen */
+    /* Video Viewport */
     .video-viewport {
       width: 100%;
       height: 380px;
@@ -129,7 +129,6 @@
   <div class="container">
     <h2>Listener Hub (Live Audio & Video)</h2>
 
-    <!-- Video Display Area -->
     <div class="video-viewport">
       <video id="remote-video" autoplay playsinline></video>
       <div id="stream-overlay" class="video-overlay">STANDBY / WAITING FOR STREAM</div>
@@ -184,7 +183,7 @@
 
       document.getElementById('status-text').innerText = 'Connecting to ' + roomId + '...';
 
-      // Create dummy audio track to start WebRTC handshake
+      // Create dummy audio context to initiate WebRTC handshake
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
