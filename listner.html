@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast Listener</title>
+  <title>AuraCast — Live Video & Audio Listener</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -16,7 +16,6 @@
       --primary: #10b981;
       --primary-hover: #059669;
       --warning: #f59e0b;
-      --warning-hover: #d97706;
       --danger: #ef4444;
       --text: #f8fafc;
       --text-muted: #94a3b8;
@@ -25,13 +24,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     
-    .card {
+    .container {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 24px;
       width: 100%;
-      max-width: 420px;
+      max-width: 680px;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -39,6 +38,39 @@
     }
 
     h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+
+    /* Video Player Screen */
+    .video-viewport {
+      width: 100%;
+      height: 380px;
+      background: #000;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .video-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0,0,0,0.6);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--primary);
+    }
 
     input[type="text"] {
       background: var(--card-inner);
@@ -52,10 +84,7 @@
     }
     input[type="text"]:focus { border-color: var(--primary); }
 
-    .btn-group {
-      display: flex;
-      gap: 10px;
-    }
+    .btn-group { display: flex; gap: 10px; }
 
     button {
       flex: 1;
@@ -76,14 +105,8 @@
     button:hover { background: var(--primary-hover); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .btn-mute {
-      background: var(--warning);
-    }
-    .btn-mute:hover { background: var(--warning-hover); }
-
-    .btn-muted-active {
-      background: var(--danger) !important;
-    }
+    .btn-mute { background: var(--warning); }
+    .btn-muted-active { background: var(--danger) !important; }
 
     .controls-panel {
       background: var(--card-inner);
@@ -91,63 +114,49 @@
       border-radius: 12px;
       padding: 14px;
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .volume-row {
-      display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       font-size: 0.85rem;
       color: var(--text-muted);
     }
 
-    input[type="range"] {
-      flex: 1;
-      accent-color: var(--primary);
-      cursor: pointer;
-    }
-
-    .status-badge {
-      font-size: 0.8125rem;
-      color: var(--text-muted);
-      font-family: 'JetBrains Mono', monospace;
-      text-align: center;
-      padding: 4px;
-    }
+    input[type="range"] { flex: 1; accent-color: var(--primary); }
+    .status-badge { font-size: 0.8125rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-align: center; }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h2>Listener Hub</h2>
-    
+  <div class="container">
+    <h2>Listener Hub (Live Audio & Video)</h2>
+
+    <!-- Video Display Area -->
+    <div class="video-viewport">
+      <video id="remote-video" autoplay playsinline></video>
+      <div id="stream-overlay" class="video-overlay">STANDBY / WAITING FOR STREAM</div>
+    </div>
+
     <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
-    
+
     <div class="btn-group">
-      <button id="btn-listen" onclick="connectToSpeaker()">Start Listening</button>
-      <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
+      <button id="btn-listen" onclick="connectToSpeaker()">Start Watching & Listening</button>
+      <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Sound</button>
     </div>
 
     <div class="controls-panel">
-      <div class="volume-row">
-        <span>Volume:</span>
-        <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)" />
-        <span id="vol-readout" style="width: 38px; text-align: right;">100%</span>
-      </div>
+      <span>Volume:</span>
+      <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)" />
+      <span id="vol-readout" style="width: 38px; text-align: right;">100%</span>
     </div>
 
     <div id="status-text" class="status-badge">Status: Initializing Peer...</div>
-    <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
   <script>
     let peer = null;
-    let currentCall = null;
     let isMuted = false;
-    const player = document.getElementById('remote-audio');
+    const videoElement = document.getElementById('remote-video');
     const muteBtn = document.getElementById('btn-mute');
+    const overlay = document.getElementById('stream-overlay');
 
     function initListenerPeer() {
       peer = new Peer({
@@ -171,10 +180,11 @@
 
     function connectToSpeaker() {
       const roomId = document.getElementById('room-input').value.trim();
-      if (!roomId) return alert('Enter the Room ID from the Calculator app');
+      if (!roomId) return alert('Enter Room ID from Calculator app');
 
       document.getElementById('status-text').innerText = 'Connecting to ' + roomId + '...';
 
+      // Create dummy audio track to start WebRTC handshake
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -185,22 +195,17 @@
       osc.start();
 
       const call = peer.call(roomId, dest.stream);
-      currentCall = call;
 
       call.on('stream', (remoteStream) => {
-        player.srcObject = remoteStream;
-        player.muted = isMuted;
-        player.play().then(() => {
-          document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+        videoElement.srcObject = remoteStream;
+        videoElement.muted = isMuted;
+
+        videoElement.play().then(() => {
+          document.getElementById('status-text').innerText = 'Status: Connected & Receiving Video/Audio 🟢';
+          overlay.innerText = 'LIVE STREAM 🔴';
         }).catch(() => {
-          document.getElementById('status-text').innerText = 'Status: Tap button below to enable sound';
-          document.getElementById('btn-listen').innerText = 'Enable Sound';
-          document.getElementById('btn-listen').onclick = () => {
-            player.play();
-            document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
-            document.getElementById('btn-listen').innerText = 'Connected';
-            document.getElementById('btn-listen').disabled = true;
-          };
+          document.getElementById('status-text').innerText = 'Status: Tap video to allow audio/video playback';
+          videoElement.onclick = () => videoElement.play();
         });
 
         muteBtn.disabled = false;
@@ -209,6 +214,7 @@
 
       call.on('close', () => {
         document.getElementById('status-text').innerText = 'Status: Stream ended by speaker';
+        overlay.innerText = 'DISCONNECTED';
         muteBtn.disabled = true;
         document.getElementById('btn-listen').disabled = false;
       });
@@ -221,21 +227,21 @@
 
     function toggleMute() {
       isMuted = !isMuted;
-      player.muted = isMuted;
+      videoElement.muted = isMuted;
 
       if (isMuted) {
-        muteBtn.innerText = 'Unmute Voice';
+        muteBtn.innerText = 'Unmute Sound';
         muteBtn.classList.add('btn-muted-active');
-        document.getElementById('status-text').innerText = 'Status: Connected (Audio Muted) 🔇';
+        document.getElementById('status-text').innerText = 'Status: Video Active (Audio Muted) 🔇';
       } else {
-        muteBtn.innerText = 'Mute Voice';
+        muteBtn.innerText = 'Mute Sound';
         muteBtn.classList.remove('btn-muted-active');
-        document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
+        document.getElementById('status-text').innerText = 'Status: Connected & Receiving Video/Audio 🟢';
       }
     }
 
     function setVolume(val) {
-      player.volume = val;
+      videoElement.volume = val;
       document.getElementById('vol-readout').innerText = Math.round(val * 100) + '%';
     }
 
