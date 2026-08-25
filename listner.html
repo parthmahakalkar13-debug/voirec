@@ -11,32 +11,48 @@
     :root {
       --bg: #0a0d14;
       --card: #121826;
+      --card-inner: #1a2336;
       --primary: #10b981;
+      --primary-hover: #059669;
       --warning: #f59e0b;
       --danger: #ef4444;
       --text: #f8fafc;
       --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; }
-    input[type="text"] { background: #1a2336; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; color: #fff; font-size: 1rem; outline: none; width: 100%; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    input[type="text"] { background: var(--card-inner); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 1rem; outline: none; width: 100%; }
     .btn-group { display: flex; gap: 10px; }
-    button { flex: 1; background: var(--primary); color: #fff; font-weight: 600; border: none; border-radius: 10px; padding: 14px; font-size: 0.95rem; cursor: pointer; }
+    button { flex: 1; background: var(--primary); color: #fff; font-weight: 600; border: none; border-radius: 10px; padding: 14px; font-size: 0.95rem; cursor: pointer; transition: 0.2s; }
+    button:hover { background: var(--primary-hover); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-mute { background: var(--warning); }
     .btn-muted-active { background: var(--danger) !important; }
+    .controls-panel { background: var(--card-inner); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .volume-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); }
+    input[type="range"] { flex: 1; accent-color: var(--primary); cursor: pointer; }
     .status-badge { font-size: 0.8125rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-align: center; }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h2>Persistent Listener Hub</h2>
+    <h2>Resilient Listener Hub</h2>
     <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
     
     <div class="btn-group">
-      <button id="btn-listen" onclick="startConnectionLoop()">Connect</button>
+      <button id="btn-listen" onclick="startPersistentConnection()">Connect</button>
       <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
+    </div>
+
+    <div class="controls-panel">
+      <div class="volume-row">
+        <span>Volume:</span>
+        <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)" />
+        <span id="vol-readout" style="width: 38px; text-align: right;">100%</span>
+      </div>
     </div>
 
     <div id="status-text" class="status-badge">Status: Idle</div>
@@ -45,18 +61,19 @@
 
   <script>
     let peer = null;
-    let currentCall = null;
+    let activeCall = null;
     let isMuted = false;
-    let autoReconnectInterval = null;
     let targetRoomId = '';
+    let monitorInterval = null;
 
     const player = document.getElementById('remote-audio');
     const muteBtn = document.getElementById('btn-mute');
+    const connectBtn = document.getElementById('btn-listen');
     const statusText = document.getElementById('status-text');
 
     function initPeer() {
       if (peer) {
-        try { peer.destroy(); } catch(e) {}
+        try { peer.destroy(); } catch(e){}
       }
 
       peer = new Peer({
@@ -70,32 +87,36 @@
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Signaling Ready';
+        statusText.innerText = 'Status: Ready to connect';
+      });
+
+      peer.on('disconnected', () => {
+        peer.reconnect();
       });
 
       peer.on('error', (err) => {
-        statusText.innerText = 'Peer Error: ' + err.type;
+        statusText.innerText = 'Status: ' + err.type;
       });
     }
 
-    function startConnectionLoop() {
+    function startPersistentConnection() {
       targetRoomId = document.getElementById('room-input').value.trim();
       if (!targetRoomId) return alert('Enter Room ID');
 
-      establishCall();
+      executeCall();
 
-      // Periodic check: If connection drops due to call interruption or network switch, auto-reconnect
-      if (!autoReconnectInterval) {
-        autoReconnectInterval = setInterval(() => {
-          if (!currentCall || !currentCall.open) {
-            statusText.innerText = 'Connection lost. Reconnecting...';
-            establishCall();
+      // Automated Heartbeat: Detects network drops or call interrupts and reconnects automatically
+      if (!monitorInterval) {
+        monitorInterval = setInterval(() => {
+          if (!activeCall || !activeCall.open) {
+            statusText.innerText = 'Status: Re-syncing connection...';
+            executeCall();
           }
-        }, 5000);
+        }, 4000);
       }
     }
 
-    function establishCall() {
+    function executeCall() {
       if (!peer || peer.destroyed) {
         initPeer();
         return;
@@ -124,25 +145,38 @@
         });
 
         muteBtn.disabled = false;
-        document.getElementById('btn-listen').disabled = true;
+        connectBtn.disabled = true;
       });
 
       call.on('close', () => {
-        statusText.innerText = 'Stream interrupted. Retrying...';
+        statusText.innerText = 'Status: Interrupted. Auto-retrying...';
       });
 
       call.on('error', () => {
-        statusText.innerText = 'Reconnecting...';
+        statusText.innerText = 'Status: Re-establishing link...';
       });
 
-      currentCall = call;
+      activeCall = call;
     }
 
     function toggleMute() {
       isMuted = !isMuted;
       player.muted = isMuted;
-      muteBtn.innerText = isMuted ? 'Unmute Voice' : 'Mute Voice';
-      muteBtn.classList.toggle('btn-muted-active', isMuted);
+
+      if (isMuted) {
+        muteBtn.innerText = 'Unmute Voice';
+        muteBtn.classList.add('btn-muted-active');
+        statusText.innerText = 'Status: Connected (Audio Muted) 🔇';
+      } else {
+        muteBtn.innerText = 'Mute Voice';
+        muteBtn.classList.remove('btn-muted-active');
+        statusText.innerText = 'Status: Connected & Streaming 🟢';
+      }
+    }
+
+    function setVolume(val) {
+      player.volume = val;
+      document.getElementById('vol-readout').innerText = Math.round(val * 100) + '%';
     }
 
     window.onload = initPeer;
