@@ -130,10 +130,10 @@
 
     <div class="video-viewport">
       <video id="remote-video" autoplay playsinline></video>
-      <div id="stream-overlay" class="video-overlay">STANDBY / WAITING FOR STREAM</div>
+      <div id="stream-overlay" class="video-overlay">READY</div>
     </div>
 
-    <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
+    <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
 
     <div class="btn-group">
       <button id="btn-listen" onclick="connectToSpeaker()">Start Watching & Listening</button>
@@ -161,8 +161,7 @@
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' }
           ]
         }
       });
@@ -176,12 +175,12 @@
       });
     }
 
-    function createDummyOfferStream() {
+    function createEmptyOfferStream() {
       const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 480;
+      canvas.width = 320;
+      canvas.height = 240;
       const ctx = canvas.getContext('2d');
-      ctx.fillRect(0, 0, 640, 480);
+      ctx.fillRect(0, 0, 320, 240);
       const vStream = canvas.captureStream(1);
 
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -205,18 +204,18 @@
 
       document.getElementById('status-text').innerText = 'Connecting to ' + roomId + '...';
 
-      const dummyStream = createDummyOfferStream();
-      const call = peer.call(roomId, dummyStream);
+      const offerStream = createEmptyOfferStream();
+      const call = peer.call(roomId, offerStream);
 
       call.on('stream', (remoteStream) => {
         videoElement.srcObject = remoteStream;
         videoElement.muted = isMuted;
 
         videoElement.play().then(() => {
-          document.getElementById('status-text').innerText = 'Status: Connected & Receiving Video/Audio 🟢';
+          document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
           overlay.innerText = 'LIVE STREAM 🔴';
         }).catch(() => {
-          document.getElementById('status-text').innerText = 'Status: Tap video to allow audio/video playback';
+          document.getElementById('status-text').innerText = 'Status: Tap video to allow playback';
           videoElement.onclick = () => videoElement.play();
         });
 
@@ -225,7 +224,7 @@
       });
 
       call.on('close', () => {
-        document.getElementById('status-text').innerText = 'Status: Stream ended by speaker';
+        document.getElementById('status-text').innerText = 'Status: Disconnected';
         overlay.innerText = 'DISCONNECTED';
         muteBtn.disabled = true;
         document.getElementById('btn-listen').disabled = false;
@@ -248,7 +247,7 @@
       } else {
         muteBtn.innerText = 'Mute Sound';
         muteBtn.classList.remove('btn-muted-active');
-        document.getElementById('status-text').innerText = 'Status: Connected & Receiving Video/Audio 🟢';
+        document.getElementById('status-text').innerText = 'Status: Connected & Streaming 🟢';
       }
     }
 
