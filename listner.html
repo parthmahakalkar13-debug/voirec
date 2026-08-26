@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast — High Resilience Listener</title>
+  <title>AuraCast — CGNAT-Immune Listener</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -88,12 +88,12 @@
 <body>
 
   <div class="card">
-    <h2>Persistent Listener Hub</h2>
+    <h2>NAT-Immune Listener Hub</h2>
     
-    <input type="text" id="room-input" placeholder="Enter Speaker Room ID (e.g. aura-xxxxxx)" />
+    <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
     
     <div class="btn-group">
-      <button id="btn-listen" onclick="startInfiniteWatchdog()">Lock Connection</button>
+      <button id="btn-listen" onclick="startPermanentConnection()">Connect & Lock</button>
       <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
     </div>
 
@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div id="status-text" class="status-badge">Status: Initializing Mesh...</div>
+    <div id="status-text" class="status-badge">Status: Initializing STUN/TURN...</div>
     <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
@@ -122,13 +122,19 @@
     const lockBtn = document.getElementById('btn-listen');
     const statusText = document.getElementById('status-text');
 
-    const STUN_SERVERS = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' }
-    ];
+    const ICE_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ],
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all'
+    };
 
     function initListenerPeer() {
       if (peer) {
@@ -136,15 +142,11 @@
       }
 
       peer = new Peer({
-        config: {
-          iceServers: STUN_SERVERS,
-          iceCandidatePoolSize: 10,
-          iceTransportPolicy: 'all'
-        }
+        config: ICE_CONFIG
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Ready & Armed ⚡';
+        statusText.innerText = 'Status: Relay Network Armed 🟢';
       });
 
       peer.on('disconnected', () => {
@@ -156,27 +158,27 @@
       });
     }
 
-    function startInfiniteWatchdog() {
+    function startPermanentConnection() {
       targetRoomId = document.getElementById('room-input').value.trim();
       if (!targetRoomId) return alert('Enter Room ID');
 
       lockBtn.innerText = 'Locked 🟢';
       lockBtn.disabled = true;
 
-      connectWithFailover();
+      connectWithRelayFallback();
 
-      // Infinite Watchdog Loop: Checks connection every 2.5 seconds
+      // Watchdog checks every 2 seconds for port expiry or network drops
       if (!watchdogTimer) {
         watchdogTimer = setInterval(() => {
           if (!isConnected || !activeCall || !activeCall.open) {
-            statusText.innerText = 'Watchdog: Re-verifying link...';
-            connectWithFailover();
+            statusText.innerText = 'Watchdog: Restoring connection...';
+            connectWithRelayFallback();
           }
-        }, 2500);
+        }, 2000);
       }
     }
 
-    function connectWithFailover() {
+    function connectWithRelayFallback() {
       if (!peer || peer.destroyed) {
         initListenerPeer();
         return;
@@ -202,9 +204,9 @@
         player.muted = isMuted;
 
         player.play().then(() => {
-          statusText.innerText = 'Status: Stream Active (Unbreakable Link) 🟢';
+          statusText.innerText = 'Status: Stream Active (Relay Connected) 🟢';
         }).catch(() => {
-          statusText.innerText = 'Status: Audio Waiting (Tap Anywhere)';
+          statusText.innerText = 'Status: Tap screen to enable audio';
           document.body.onclick = () => { player.play(); };
         });
 
@@ -220,14 +222,14 @@
             try { pc.restartIce(); } catch (e) {}
           } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
             isConnected = true;
-            statusText.innerText = 'Status: Stream Active (Unbreakable Link) 🟢';
+            statusText.innerText = 'Status: Stream Active (Relay Connected) 🟢';
           }
         };
       }
 
       call.on('close', () => {
         isConnected = false;
-        statusText.innerText = 'Connection interrupted. Auto-recovering...';
+        statusText.innerText = 'Link dropped. Re-establishing...';
       });
 
       call.on('error', () => {
@@ -246,7 +248,7 @@
       } else {
         muteBtn.innerText = 'Mute Voice';
         muteBtn.classList.remove('btn-muted-active');
-        statusText.innerText = 'Status: Stream Active (Unbreakable Link) 🟢';
+        statusText.innerText = 'Status: Stream Active (Relay Connected) 🟢';
       }
     }
 
