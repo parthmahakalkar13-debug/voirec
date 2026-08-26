@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast — CGNAT-Immune Listener</title>
+  <title>AuraCast — Continuous Listener</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -88,7 +88,7 @@
 <body>
 
   <div class="card">
-    <h2>NAT-Immune Listener Hub</h2>
+    <h2>Persistent Listener Hub</h2>
     
     <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
     
@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div id="status-text" class="status-badge">Status: Initializing STUN/TURN...</div>
+    <div id="status-text" class="status-badge">Status: Initializing Mesh...</div>
     <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
@@ -116,6 +116,7 @@
     let targetRoomId = '';
     let watchdogTimer = null;
     let isConnected = false;
+    let probeIndex = 0; // 0 = base room, 1..5 = sub-generations
 
     const player = document.getElementById('remote-audio');
     const muteBtn = document.getElementById('btn-mute');
@@ -126,8 +127,6 @@
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
         { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
         { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
@@ -142,11 +141,12 @@
       }
 
       peer = new Peer({
-        config: ICE_CONFIG
+        config: ICE_CONFIG,
+        debug: 1
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Relay Network Armed 🟢';
+        statusText.innerText = 'Status: Signaling Ready 🟢';
       });
 
       peer.on('disconnected', () => {
@@ -154,7 +154,7 @@
       });
 
       peer.on('error', (err) => {
-        statusText.innerText = 'Peer Mesh: ' + err.type;
+        statusText.innerText = 'Signaling Status: ' + err.type;
       });
     }
 
@@ -165,24 +165,25 @@
       lockBtn.innerText = 'Locked 🟢';
       lockBtn.disabled = true;
 
-      connectWithRelayFallback();
+      connectSweep();
 
-      // Watchdog checks every 2 seconds for port expiry or network drops
       if (!watchdogTimer) {
         watchdogTimer = setInterval(() => {
           if (!isConnected || !activeCall || !activeCall.open) {
-            statusText.innerText = 'Watchdog: Restoring connection...';
-            connectWithRelayFallback();
+            probeIndex = (probeIndex + 1) % 6; // Sweeps base, _1, _2, _3, _4, _5
+            connectSweep();
           }
         }, 2000);
       }
     }
 
-    function connectWithRelayFallback() {
+    function connectSweep() {
       if (!peer || peer.destroyed) {
         initListenerPeer();
         return;
       }
+
+      const activeTarget = probeIndex === 0 ? targetRoomId : `${targetRoomId}_${probeIndex}`;
 
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -193,7 +194,7 @@
       gain.connect(dest);
       osc.start();
 
-      const call = peer.call(targetRoomId, dest.stream);
+      const call = peer.call(activeTarget, dest.stream);
       if (!call) return;
 
       activeCall = call;
@@ -204,7 +205,7 @@
         player.muted = isMuted;
 
         player.play().then(() => {
-          statusText.innerText = 'Status: Stream Active (Relay Connected) 🟢';
+          statusText.innerText = 'Status: Connected & Streaming 🟢';
         }).catch(() => {
           statusText.innerText = 'Status: Tap screen to enable audio';
           document.body.onclick = () => { player.play(); };
@@ -222,14 +223,13 @@
             try { pc.restartIce(); } catch (e) {}
           } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
             isConnected = true;
-            statusText.innerText = 'Status: Stream Active (Relay Connected) 🟢';
+            statusText.innerText = 'Status: Connected & Streaming 🟢';
           }
         };
       }
 
       call.on('close', () => {
         isConnected = false;
-        statusText.innerText = 'Link dropped. Re-establishing...';
       });
 
       call.on('error', () => {
@@ -248,7 +248,7 @@
       } else {
         muteBtn.innerText = 'Mute Voice';
         muteBtn.classList.remove('btn-muted-active');
-        statusText.innerText = 'Status: Stream Active (Relay Connected) 🟢';
+        statusText.innerText = 'Status: Connected & Streaming 🟢';
       }
     }
 
