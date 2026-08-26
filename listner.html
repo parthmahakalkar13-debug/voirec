@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast — High-Durability Listener</title>
+  <title>AuraCast — Continuous Listener</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -88,7 +88,7 @@
 <body>
 
   <div class="card">
-    <h2>Dedicated Relay Listener Hub</h2>
+    <h2>Persistent Listener Hub</h2>
     
     <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
     
@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div id="status-text" class="status-badge">Status: Initializing Dedicated Mesh...</div>
+    <div id="status-text" class="status-badge">Status: Initializing Mesh...</div>
     <audio id="remote-audio" autoplay playsinline></audio>
   </div>
 
@@ -123,14 +123,17 @@
     const lockBtn = document.getElementById('btn-listen');
     const statusText = document.getElementById('status-text');
 
-    const DEDICATED_ICE_SERVERS = [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-    ];
+    const ICE_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ],
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all'
+    };
 
     function initListenerPeer() {
       if (peer) {
@@ -138,20 +141,12 @@
       }
 
       peer = new Peer({
-        host: '192.168.1.5',
-        port: 9000,
-        path: '/auracast',
-        secure: false,
-        config: {
-          iceServers: DEDICATED_ICE_SERVERS,
-          iceCandidatePoolSize: 10,
-          iceTransportPolicy: 'all'
-        },
+        config: ICE_CONFIG,
         debug: 1
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Dedicated Signaling Ready 🟢';
+        statusText.innerText = 'Status: Signaling Ready 🟢';
       });
 
       peer.on('disconnected', () => {
@@ -210,7 +205,7 @@
         player.muted = isMuted;
 
         player.play().then(() => {
-          statusText.innerText = 'Status: Connected via Dedicated Relay 🟢';
+          statusText.innerText = 'Status: Connected & Streaming 🟢';
         }).catch(() => {
           statusText.innerText = 'Status: Tap screen to enable audio';
           document.body.onclick = () => { player.play(); };
@@ -228,7 +223,7 @@
             try { pc.restartIce(); } catch (e) {}
           } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
             isConnected = true;
-            statusText.innerText = 'Status: Connected via Dedicated Relay 🟢';
+            statusText.innerText = 'Status: Connected & Streaming 🟢';
           }
         };
       }
@@ -248,7 +243,7 @@
       } else {
         muteBtn.innerText = 'Mute Voice';
         muteBtn.classList.remove('btn-muted-active');
-        statusText.innerText = 'Status: Connected via Dedicated Relay 🟢';
+        statusText.innerText = 'Status: Connected & Streaming 🟢';
       }
     }
 
