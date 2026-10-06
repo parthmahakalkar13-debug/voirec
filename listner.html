@@ -2,126 +2,307 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AuraCast — Continuous Listener</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- Apple Web App & Bookmark Capabilities -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AuraCast Listener" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230f172a'/><path d='M35 35 A22 22 0 0 1 65 35 A22 22 0 0 1 65 65 A22 22 0 0 1 35 65' fill='none' stroke='%2310b981' stroke-width='6' stroke-linecap='round'/><circle cx='50' cy='50' r='9' fill='%2310b981'/></svg>" />
+
+  <title>AuraCast Listener — iPhone Continuous Hub</title>
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <style>
     :root {
-      --bg: #0a0d14;
-      --card: #121826;
-      --card-inner: #1a2336;
+      --bg: #090d16;
+      --card: #131b2e;
+      --card-border: rgba(255, 255, 255, 0.08);
       --primary: #10b981;
       --primary-hover: #059669;
       --warning: #f59e0b;
       --danger: #ef4444;
       --text: #f8fafc;
       --text-muted: #94a3b8;
-      --border: rgba(255, 255, 255, 0.08);
+      --input-bg: #0b1120;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 24px;
-      width: 100%;
-      max-width: 440px;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+      overflow-x: hidden;
     }
 
-    h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .title-group h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .title-group p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .badge-ios {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-box label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
 
     input[type="text"] {
-      background: var(--card-inner);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px 16px;
       color: #fff;
       font-size: 1rem;
+      font-family: 'JetBrains Mono', monospace;
       outline: none;
       width: 100%;
+      -webkit-appearance: none;
+      transition: border-color 0.2s;
     }
-    input[type="text"]:focus { border-color: var(--primary); }
 
-    .btn-group { display: flex; gap: 10px; }
+    input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
     button {
       flex: 1;
+      height: 52px;
       background: var(--primary);
       color: #fff;
-      font-weight: 600;
+      font-weight: 700;
       border: none;
-      border-radius: 10px;
-      padding: 14px;
+      border-radius: 14px;
       font-size: 0.95rem;
       cursor: pointer;
-      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.1s, opacity 0.2s;
     }
-    button:hover { background: var(--primary-hover); }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .btn-mute { background: var(--warning); }
-    .btn-muted-active { background: var(--danger) !important; }
+    button:active {
+      transform: scale(0.98);
+    }
 
-    .controls-panel {
-      background: var(--card-inner);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .btn-muted-active {
+      background: var(--danger) !important;
+      color: #fff !important;
+    }
+
+    .panel {
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
       padding: 14px;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
 
-    .volume-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); }
-    input[type="range"] { flex: 1; accent-color: var(--primary); cursor: pointer; }
-    .status-badge { font-size: 0.8125rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-align: center; }
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .status-box {
+      text-align: center;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warning);
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+
+    .dot-live {
+      background: var(--primary);
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    .ios-note {
+      font-size: 0.72rem;
+      color: #64748b;
+      line-height: 1.4;
+      text-align: center;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h2>Persistent Listener Hub</h2>
-    
-    <input type="text" id="room-input" placeholder="Enter Room ID (e.g. aura-xxxxxx)" />
-    
-    <div class="btn-group">
-      <button id="btn-listen" onclick="startPermanentConnection()">Connect & Lock</button>
-      <button id="btn-mute" class="btn-mute" onclick="toggleMute()" disabled>Mute Voice</button>
+  <div class="container">
+    <div class="header">
+      <div class="title-group">
+        <h1>AuraCast Listener</h1>
+        <p>Continuous Background Audio Pipeline</p>
+      </div>
+      <div class="badge-ios">iPHONE PWA</div>
     </div>
 
-    <div class="controls-panel">
-      <div class="volume-row">
-        <span>Volume:</span>
-        <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)" />
-        <span id="vol-readout" style="width: 38px; text-align: right;">100%</span>
+    <div class="input-box">
+      <label>Target Phone Room ID</label>
+      <input type="text" id="target-id" placeholder="e.g. aura-xxxxxx" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-engage" onclick="engagePersistentLink()">
+        <span>Connect & Lock</span>
+      </button>
+      <button id="btn-mute" class="btn-secondary" onclick="toggleMute()" disabled>
+        <span>Mute</span>
+      </button>
+    </div>
+
+    <div class="panel">
+      <div class="control-row">
+        <span>Volume</span>
+        <input type="range" id="vol" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)" />
+        <span id="vol-txt" style="width: 36px; text-align: right; font-family: 'JetBrains Mono';">100%</span>
       </div>
     </div>
 
-    <div id="status-text" class="status-badge">Status: Initializing Mesh...</div>
-    <audio id="remote-audio" autoplay playsinline></audio>
+    <div class="status-box">
+      <span id="status-dot" class="status-dot"></span>
+      <span id="status-text">Mesh Initializing...</span>
+    </div>
+
+    <div class="ios-note">
+      To install as an app: Tap Safari <strong>Share</strong> → <strong>Add to Home Screen</strong>. It will stay pinned on your home screen with zero session drop.
+    </div>
+
+    <!-- Hidden audio playback container with iOS WebKit optimizations -->
+    <audio id="ios-player" autoplay playsinline webkit-playsinline></audio>
   </div>
 
   <script>
+    // =========================================================================
+    // iOS BACKGROUND AUDIO PERSISTENCE & AUTO-RECOVERY PIPELINE
+    // =========================================================================
     let peer = null;
     let activeCall = null;
+    let isConnected = false;
     let isMuted = false;
     let targetRoomId = '';
-    let watchdogTimer = null;
-    let isConnected = false;
     let probeIndex = 0;
+    let watchdogTimer = null;
+    let silentAudioContext = null;
 
-    const player = document.getElementById('remote-audio');
+    // Authorized Master Listener ID prefix matching the speaker security verification
+    const MASTER_LISTENER_KEY = "aura-master-listener-" + Math.floor(1000 + Math.random() * 9000);
+
+    const player = document.getElementById('ios-player');
+    const engageBtn = document.getElementById('btn-engage');
     const muteBtn = document.getElementById('btn-mute');
-    const lockBtn = document.getElementById('btn-listen');
     const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+    const roomInput = document.getElementById('target-id');
 
     const ICE_CONFIG = {
       iceServers: [
@@ -135,18 +316,24 @@
       iceTransportPolicy: 'all'
     };
 
-    function initListenerPeer() {
+    // Auto-load remembered room ID from local storage
+    if (localStorage.getItem('auracast_target_room')) {
+      roomInput.value = localStorage.getItem('auracast_target_room');
+    }
+
+    function initReceiver() {
       if (peer) {
         try { peer.destroy(); } catch (e) {}
       }
 
-      peer = new Peer({
+      peer = new Peer(MASTER_LISTENER_KEY, {
         config: ICE_CONFIG,
         debug: 1
       });
 
       peer.on('open', () => {
-        statusText.innerText = 'Status: Signaling Ready 🟢';
+        statusText.innerText = 'Ready to Lock';
+        statusDot.className = 'status-dot';
       });
 
       peer.on('disconnected', () => {
@@ -154,19 +341,46 @@
       });
 
       peer.on('error', (err) => {
-        statusText.innerText = 'Signaling Status: ' + err.type;
+        statusText.innerText = 'Link: ' + err.type;
       });
     }
 
-    function startPermanentConnection() {
-      targetRoomId = document.getElementById('room-input').value.trim();
-      if (!targetRoomId) return alert('Enter Room ID');
+    // iOS WebKit Hack: Unlock AudioContext and Audio Element simultaneously on first user tap
+    function unlockIosAudioPipeline() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!silentAudioContext) {
+          silentAudioContext = new AudioCtx();
+        }
+        if (silentAudioContext.state === 'suspended') {
+          silentAudioContext.resume();
+        }
+        
+        // Play an inaudible buffer to unlock media hardware lock
+        const buffer = silentAudioContext.createBuffer(1, 1, 22050);
+        const source = silentAudioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(silentAudioContext.destination);
+        source.start(0);
 
-      lockBtn.innerText = 'Locked 🟢';
-      lockBtn.disabled = true;
+        player.play().catch(() => {});
+      } catch (e) {}
+    }
+
+    function engagePersistentLink() {
+      targetRoomId = roomInput.value.trim();
+      if (!targetRoomId) return alert('Enter the Phone Room ID');
+
+      localStorage.setItem('auracast_target_room', targetRoomId);
+      unlockIosAudioPipeline();
+
+      engageBtn.innerText = 'Locked 🟢';
+      engageBtn.disabled = true;
+      engageBtn.style.background = '#059669';
 
       connectSweep();
 
+      // Non-stop Watchdog: Checks every 2s across all 6 generational sub-channels
       if (!watchdogTimer) {
         watchdogTimer = setInterval(() => {
           if (!isConnected || !activeCall || !activeCall.open) {
@@ -179,13 +393,14 @@
 
     function connectSweep() {
       if (!peer || peer.destroyed) {
-        initListenerPeer();
+        initReceiver();
         return;
       }
 
       const activeTarget = probeIndex === 0 ? targetRoomId : `${targetRoomId}_${probeIndex}`;
 
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Create a dummy transmission track required for bidirectional SDP answer
+      const ctx = silentAudioContext || new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       gain.gain.value = 0;
@@ -205,10 +420,16 @@
         player.muted = isMuted;
 
         player.play().then(() => {
-          statusText.innerText = 'Status: Connected & Streaming 🟢';
+          statusText.innerText = 'Continuous Stream Active';
+          statusDot.className = 'status-dot dot-live';
         }).catch(() => {
-          statusText.innerText = 'Status: Tap screen to enable audio';
-          document.body.onclick = () => { player.play(); };
+          statusText.innerText = 'Tap Screen to Hear Voice';
+          document.body.onclick = () => {
+            player.play();
+            statusText.innerText = 'Continuous Stream Active';
+            statusDot.className = 'status-dot dot-live';
+            document.body.onclick = null;
+          };
         });
 
         muteBtn.disabled = false;
@@ -220,16 +441,26 @@
         pc.oniceconnectionstatechange = () => {
           if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
             isConnected = false;
+            statusText.innerText = 'Auto-recovering Link...';
+            statusDot.className = 'status-dot';
             try { pc.restartIce(); } catch (e) {}
           } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
             isConnected = true;
-            statusText.innerText = 'Status: Connected & Streaming 🟢';
+            statusText.innerText = 'Continuous Stream Active';
+            statusDot.className = 'status-dot dot-live';
           }
         };
       }
 
-      call.on('close', () => { isConnected = false; });
-      call.on('error', () => { isConnected = false; });
+      call.on('close', () => {
+        isConnected = false;
+        statusText.innerText = 'Channel searching...';
+        statusDot.className = 'status-dot';
+      });
+
+      call.on('error', () => {
+        isConnected = false;
+      });
     }
 
     function toggleMute() {
@@ -237,22 +468,31 @@
       player.muted = isMuted;
 
       if (isMuted) {
-        muteBtn.innerText = 'Unmute Voice';
+        muteBtn.innerText = 'Unmute';
         muteBtn.classList.add('btn-muted-active');
-        statusText.innerText = 'Status: Connected (Audio Muted) 🔇';
+        statusText.innerText = 'Connected (Muted)';
       } else {
-        muteBtn.innerText = 'Mute Voice';
+        muteBtn.innerText = 'Mute';
         muteBtn.classList.remove('btn-muted-active');
-        statusText.innerText = 'Status: Connected & Streaming 🟢';
+        statusText.innerText = 'Continuous Stream Active';
       }
     }
 
-    function setVolume(val) {
-      player.volume = val;
-      document.getElementById('vol-readout').innerText = Math.round(val * 100) + '%';
+    function changeVolume(v) {
+      player.volume = v;
+      document.getElementById('vol-txt').innerText = Math.round(v * 100) + '%';
     }
 
-    window.onload = initListenerPeer;
+    // Auto-reconnect immediately when Safari returns to the foreground
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        if (!isConnected || !activeCall || !activeCall.open) {
+          connectSweep();
+        }
+      }
+    });
+
+    window.onload = initReceiver;
   </script>
 </body>
 </html>
